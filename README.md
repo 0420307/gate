@@ -1,211 +1,220 @@
-# hezhanleiok/gate 同步 jerylihub/gate 最新版修改说明
+# VPN Gate SSTP 节点自动优选（edgetunnel 链式代理）
 
-## 一、结论
+自动抓取 [VPN Gate](https://www.vpngate.net/) 的 SSTP 家宽/机房节点，调用检测 Worker 逐个验证可用性，按国家分组、标注住宅/机房，生成可直接粘贴进 edgetunnel 后台的链式代理清单。**每 30 分钟自动更新一次。**
 
-`hezhanleiok/gate` 是你那份旧代码的独立仓库，落后于 `jerylihub/gate` 两个版本，而且它比旧版还缺一个「30 分钟定时」。
-
-你「URL 粘贴可用」是在 `jerylihub/gate` 那边，这份 `hezhanleiok/gate` 目前并不具备这个能力。
+> 核心价值：VPN Gate 的 SSTP 节点 30 分钟就换一批，手动测试筛选太痛苦。本仓库把它全自动了——你只需定期打开一个固定 URL 复制粘贴。
 
 ---
 
-## 二、诊断：hezhanleiok/gate 缺什么
+## 引用的开源项目（致谢）
 
-| 缺口 | 位置 | 影响 |
-|---|---|---|
-| 没有 `nodes.txt` 生成 | `vpngate.py` `write_outputs()` | 没有纯节点版，谈不上 URL 自动轮换 |
-| 没有 `NODES_URL` 常量 + 提示日志 | `vpngate.py` | 同上 |
-| **没有 30 分钟定时** | `check.yml` `on:` 只有 `workflow_dispatch` | 就算生成了也不会每 30 分钟自动更新 |
-| URL 写死指向 `jerylihub` | `vpngate.py` 3 处 + `check.yml` 1 处 | 生成的链接/注释指向别人的站 |
-| 说明文档是旧的（只有手动粘贴） | `README.md` | 没有 URL 轮换教程 |
+本项目建立在以下开源项目之上：
 
----
-
-## 三、修改总览
-
-共修改 **3 个文件，13 处**：
-
-| 文件 | 处数 | 说明 |
-|---|---:|---|
-| `vpngate.py` | 6 | 增加 `NODES_URL`、生成 `nodes.txt`、日志、替换 URL |
-| `.github/workflows/check.yml` | 2 | 增加 30 分钟定时、替换站点 URL |
-| `README.md` | 5 | 核心价值、架构图、配置表、使用教程、速查表 |
-
-另外，全局替换 `jerylihub` → `hezhanleiok` 共 **5 处**：
-
-- `vpngate.py`：`CHAIN_URL`、`HOSTS_URL`、`NODES_URL`、`SUB_URL`
-- `check.yml`：`Show site URL` 那行
+| 项目 | 用途 | 链接 |
+| :--- | :--- | :--- |
+| **cmliu/edgetunnel** | VLESS 代理 + 链式代理（节点备注里的链式代理指令），节点最终通过它使用 | https://github.com/cmliu/edgetunnel |
+| **lsh8848/cm-Workers-CheckSocks5** | 检测 Worker：验证 SSTP 节点可用性并读取出口 IP（住宅/机房判定） | https://github.com/lsh8848/cm-Workers-CheckSocks5 |
+| **fdciabdul/Vpngate-Scraper-API** | VPN Gate 节点数据的 GitHub 镜像（官方源失效时回退） | https://github.com/fdciabdul/Vpngate-Scraper-API |
+| **VPN Gate** | SSTP 节点数据源 | https://www.vpngate.net/ |
 
 ---
 
-## 四、方案 A（推荐，最省事）：同步 jerylihub 最新版 + 全局替换
+## 架构（数据流向）
 
-因为所有这些改动在 `jerylihub/gate` 已经做完，你直接做两件事即可：
-
-1. 从 `jerylihub/gate` 下载最新：
-   - `vpngate.py`
-   - `.github/workflows/check.yml`
-   - `README.md`
-
-   覆盖到 `hezhanleiok/gate`。  
-   可以用 GitHub 网页编辑器删旧贴新，或本地替换后 push。
-
-2. 全局把 `jerylihub` 换成 `hezhanleiok`。**共 5 处**：
-   - `vpngate.py`：`CHAIN_URL`(410)、`HOSTS_URL`(469)、`NODES_URL`(470)、`SUB_URL`(529) 4 处
-   - `check.yml`：`Show site URL` 那行 1 处
-
-其余：
-
-- `EDT_DOMAIN`：`ed.xiaolei.qzz.io`
-- `EDT_UUID`
-- `EDGE_HOSTS`
-- `CHECK_WORKER`：`check.helei.kdns.fr`
-
-都是你自己的值，**不用动**。
+```text
+VPN Gate 官方源
+      │  (每 30 分钟，GitHub Actions 定时抓取)
+      ▼
+筛选 SSTP 节点 → 去重
+      │
+      ▼
+检测 Worker (CheckSocks5，部署在 Cloudflare)
+      │  GET /check?sstp=vpn:vpn@host:port
+      │  返回 success + 出口 IP(住宅/机房判定)
+      ▼
+保留成功节点 → 按国家分组 → 住宅/机房标注 → 延迟排序
+      │
+      ▼
+生成 4 个产物 (GitHub Pages 发布):
+  · hosts.txt   —— 含注释, 给人看 / 手动粘贴
+  · nodes.txt   —— 纯节点行, 填 URL 自动轮换 ★推荐
+  · chains.txt  —— 链式代理备注清单
+  · sub.txt     —— vless:// 完整订阅
+      │  把 nodes.txt 的网址填一次进 edgetunnel 后台
+      ▼
+edgetunnel 后台「自定义优选IP」框填 https://…/nodes.txt
+      │  edgetunnel 每次生成订阅时自动 fetch → 解析 $sstp:// → 套链式代理
+      ▼
+客户端订阅 edgetunnel 订阅 → 使用 SSTP 家宽节点 (每 30 分钟自动换)
+```
 
 ---
 
-## 五、方案 B（手工改）：3 个文件，共 13 处
+## 一、完整部署教程（从零开始，面向新用户）
 
-### 5.1 `vpngate.py`（706 行，6 处）
+### 前置条件
 
-#### 第 410 行：`CHAIN_URL`
+- 一个 Cloudflare 账号（免费即可）
+- 一个 GitHub 账号
+- 一个**已经部署好的 edgetunnel**（含自己的域名 + UUID，部署方法见 [edgetunnel 文档](https://github.com/cmliu/edgetunnel)）
 
-`jerylihub` → `hezhanleiok`：
+> 下文所有「你的GitHub用户名 / 仓库名 / 域名 / UUID / Worker域名」都是占位符，替换成你自己的。
 
+### 第 1 步：部署检测 Worker（CheckSocks5）
+
+检测 Worker 负责验证「SSTP 节点能不能用」以及「出口是住宅还是机房」，必须自己部署一个：
+
+1. 打开 https://github.com/lsh8848/cm-Workers-CheckSocks5 ，点 **Fork**（或直接下载其中的 _worker.js）
+2. 进 Cloudflare 控制台 → Workers 和 Pages → 创建 → 创建 Worker
+3. 把 _worker.js 的全部内容粘贴进编辑器，点「部署」
+4. 记下这个 Worker 的域名，形如 https://xxx.你的用户名.workers.dev （也可绑自定义域名）
+5. 验证：浏览器打开 https://你的Worker域名/check?sstp=vpn:vpn@任意节点:端口 ，能返回 JSON 即成功
+
+> 该 Worker 不需要任何环境变量、没有鉴权，部署完即用；它原生支持 SSTP 检测，无需改代码。
+
+### 第 2 步：Fork 本仓库
+
+在 GitHub 上打开本仓库，点 **Fork**，复制到你账号下（变成 你的GitHub用户名/仓库名）。
+
+### 第 3 步：修改配置（重点，Fork 后要改的全在这）
+
+进你 fork 的仓库，改下面几处：
+
+| 文件 | 位置 | 改成什么 | 为什么 |
+| :--- | :--- | :--- | :--- |
+| .github/workflows/check.yml | env 里的 CHECK_WORKER | 你的检测 Worker 域名，形如 https://xxx.workers.dev/check?sstp=vpn:vpn@ | 检测统一走你自己的 Worker |
+| vpngate.py | 约 515 行 EDT_DOMAIN | 你的 edgetunnel 域名 | 链式代理入口的 SNI/host |
+| vpngate.py | 约 514 行 EDT_UUID | 你的 edgetunnel UUID | 链式代理编码密钥 |
+| vpngate.py | 约 455 行 EDGE_HOSTS | 你测出来的优选域名 | 入口用谁，决定稳不稳 |
+| vpngate.py | CHAIN_URL / HOSTS_URL / NODES_URL / SUB_URL | 把里面写死的固定地址换成 你的用户名/仓库名 | 清单注释头 / 使用教程里的固定地址 |
+| .github/workflows/check.yml | 最后的 Show site URL | 把里面写死的站点地址换成你的 | 运行日志里显示的站点地址 |
+
+> CHECK_WORKER 通过 workflow 环境变量传给脚本、会覆盖 vpngate.py 里的默认值，所以检测 Worker 域名只需在 workflow 里改一处。EDT_DOMAIN / EDT_UUID / EDGE_HOSTS 是 vpngate.py 里的默认值，直接改源码。
+
+### 第 4 步：开启 GitHub Pages 与 Actions
+
+1. 进你 fork 的仓库 → Settings → Pages，Source 设为 **GitHub Actions**（首次运行 workflow 也会尝试自动开启）
+2. 进 Actions 页，若提示启用 Actions 就点启用
+3. 手动触发一次：Actions → VPN Gate Node Check → Run workflow → Run workflow
+4. 等它跑完（约 1 分钟），看到绿色 ✓ 即成功
+
+### 第 5 步：确认产物
+
+跑完后，你的站点地址是：
+
+```text
+https://你的GitHub用户名.github.io/仓库名/hosts.txt
+```
+
+浏览器打开，能看到一堆「优选域名:443#国家-住宅-XX …」的行，就说明全部打通了。
+
+### 第 6 步：使用（见下面「使用教程」）
+
+---
+
+## 二、使用教程（两种方式，推荐方式一）
+
+### 前置条件
+- 已部署 edgetunnel（自己的域名 + UUID）
+- 一个客户端：v2rayN / Clash Verge / v2rayNG 等
+
+### 方式一：URL 自动轮换（推荐，一次配置永久生效）
+
+edgetunnel 后台的「自定义优选IP」框除了粘贴文本，还支持直接填一个 `https://` 开头的**网址**——edgetunnel 会在生成订阅时自动 fetch 该网址、解析出里面的 `入口:端口#名字$sstp://…` 行并套上链式代理。因此：
+
+1. 进 edgetunnel 后台（你的域名/admin），找到「自定义优选IP」文本框
+2. 粘贴**一行网址**（不是整段节点）：
+
+   ```text
+   https://你的GitHub用户名.github.io/仓库名/nodes.txt
+   ```
+
+3. 点保存
+4. 客户端刷新订阅 → 每次刷新 edgetunnel 都重新拉取一次 nodes.txt，节点自动更新
+
+> 原理：`nodes.txt` 是纯节点行版本（无注释头），每行 `入口域名:443#国家-住宅-01$sstp://vpn:vpn@节点:端口`。edgetunnel 下次生成订阅时会 fetch 这个网址、逐行解析成优选入口 + 链式代理指令。你只填一次，之后节点每 30 分钟自动换、零手动。
+
+### 方式二：手动复制粘贴（旧方式，保留）
+
+1. 打开 https://你的GitHub用户名.github.io/仓库名/hosts.txt
+2. 浏览器里 Ctrl+A 全选 → Ctrl+C 复制
+3. 进 edgetunnel 后台（你的域名/admin），找到「自定义优选IP」文本框
+4. 光标移到现有内容末尾，Ctrl+V 粘贴
+5. 点保存（右下角提示「自定义IP已保存」）
+6. 客户端里更新/刷新订阅（订阅地址是 edgetunnel 后台给你的那个）
+7. 测延迟，选一个节点用
+
+### 节点名含义
+
+节点名格式：国家-住宅-编号 / 国家-机房-编号，例如 日本-住宅-01、韩国-机房-02。住宅和机房各自独立编号，一眼区分。
+
+### 每 30 分钟更新
+
+节点每 30 分钟换一批。方式一无需任何操作；方式二需重新打开 hosts.txt → 全选复制 → 覆盖粘贴。名字保持不变，只是背后的节点地址换了。
+
+---
+
+## 三、如何更换优选域名
+
+入口地址用的是「优选域名」，决定客户端连 Cloudflare 用哪个 IP、稳不稳。域名被墙或延迟高，可用节点就少。
+
+### 在哪个文件改
+- 文件：vpngate.py
+- 位置：约 455 行 EDGE_HOSTS = [ ... ]
+
+### 改法
+1. 用测速工具（如 bestcf）测一批 Cloudflare 优选域名，挑「延迟低 + 实际能连通」的
+2. 打开 vpngate.py，把 EDGE_HOSTS 里的域名列表换成你测出来的（逗号分隔，格式 域名:443）
+3. 提交推送，等下一次自动运行（最多 30 分钟）或手动触发 Action
+
+### 示例
 ```python
-CHAIN_URL = os.environ.get("CHAIN_URL", "https://hezhanleiok.github.io/gate/chains.txt")
+EDGE_HOSTS = [
+    h.strip()
+    for h in os.environ.get(
+        "EDGE_HOSTS",
+        "saas.072159.xyz:443,hzytjy.cn:443,ali.nonull.pp.ua:443,"
+        "auto.dolby.dpdns.org:443,cdn.cnno.de:443,saas.sin.fan:443,"
+        "cf.777791.xyz:443",
+    ).split(",")
+    if h.strip()
+]
 ```
 
-#### 第 469 行：`HOSTS_URL` 改域名，并在其后新增一行 `NODES_URL`
-
-```python
-HOSTS_URL = os.environ.get("HOSTS_URL", "https://hezhanleiok.github.io/gate/hosts.txt")
-NODES_URL = os.environ.get("NODES_URL", "https://hezhanleiok.github.io/gate/nodes.txt")
-```
-
-#### 第 528 行：`SUB_URL`
-
-`jerylihub` → `hezhanleiok`：
-
-```python
-SUB_URL = os.environ.get("SUB_URL", "https://hezhanleiok.github.io/gate/sub.txt")
-```
-
-#### `write_outputs()`：插入生成 `nodes.txt` 的 6 行，并修改 return
-
-在第 633 行之后、第 635 行 sub 注释之前插入：
-
-```python
-    # 纯节点版(无注释): 把 URL 填进 edgetunnel「自定义优选IP」框, 客户端刷新订阅即自动轮换
-    nodes_path = os.path.join(PUBLIC_DIR, "nodes.txt")
-    nodes_lines = [ln for ln in build_hosts_text(data).split("\n") if ln and not ln.startswith("#")]
-    with open(nodes_path, "w", encoding="utf-8") as f:
-        f.write("\n".join(nodes_lines) + ("\n" if nodes_lines else ""))
-```
-
-第 639 行 `return` 改为：
-
-```python
-    return data_path, html_path, chains_path, hosts_path, nodes_path, sub_path
-```
-
-#### `main()`：解包加 `nodes_path`，日志加一行
-
-第 691 行解包改为：
-
-```python
-    data_path, html_path, chains_path, hosts_path, nodes_path, sub_path = write_outputs(data)
-```
-
-第 695 行后加一行日志：
-
-```python
-    log("WEBSITE", f"生成 {os.path.relpath(nodes_path, REPO_DIR)}")
-```
+### 技巧
+- 只留实测能通的域名：bestcf 里延迟低 ≠ 一定能通，挑「延迟低 + 实际连接成功」的
+- 数量建议 5～10 个：太少单域名负担重，太多容易混进被墙的域名拖累可用率
 
 ---
 
-### 5.2 `.github/workflows/check.yml`（71 行，2 处）
+## 四、配置速查表（vpngate.py）
 
-#### 第 3–4 行：`on:` 增加 30 分钟定时
-
-现在只有手动触发，改为：
-
-```yaml
-on:
-  # 定时检测: 默认每 30 分钟一次
-  schedule:
-    - cron: "*/30 * * * *"
-  workflow_dispatch:
-```
-
-#### 第 71 行：`Show site URL`
-
-`jerylihub` → `hezhanleiok`：
-
-```yaml
-        run: 'echo "site: https://hezhanleiok.github.io/gate/ (deploy outcome: ${{ steps.deployment.outcome }})"'
-```
+| 常量 | 约位置 | 说明 |
+| :--- | :--- | :--- |
+| EDGE_HOSTS | 455 行 | 入口优选域名（换域名改这里） |
+| EDT_DOMAIN | 515 行 | 你的 edgetunnel 域名 |
+| EDT_UUID | 514 行 | 你的 edgetunnel UUID |
+| EDT_FINGERPRINT | 516 行 | TLS 指纹（默认 chrome） |
+| WORKER_CHECK_URL | 54 行 | 检测 Worker（本地运行默认值，Action 里用 workflow 的 CHECK_WORKER 覆盖） |
+| COUNTRY_ZH | 78 行 | 国家中文名映射 |
+| NODES_URL / HOSTS_URL / CHAIN_URL / SUB_URL | 469 行起 | 4 个产物的固定地址（自动轮换用 NODES_URL；fork 后改成你自己的） |
 
 ---
 
-### 5.3 `README.md`（约 220 行，5 处整体替换）
+## 五、常见问题
 
-| 处 | 位置 | 改什么 |
-|---|---|---|
-| 1 | 第 5 行「核心价值」 | 「定期打开 URL 复制粘贴」→「**填一次 URL 即自动轮换**」 |
-| 2 | 第 22–45 行「架构图」 | 加 `nodes.txt` 及 4 产物数据流（照 `jerylihub/gate` 最新版抄） |
-| 3 | 第 3 步配置表 | URL 那行加 `NODES_URL` |
-| 4 | 「二、使用教程」 | 单方式 → 双方式（方式一 URL 轮换 / 方式二手动粘贴） |
-| 5 | 「四、配置速查表」 | 加 `NODES_URL / HOSTS_URL / CHAIN_URL / SUB_URL` 一行 |
+### 只有几个节点能连
+入口优选域名大部分被墙。用 bestcf 重新测速，把 EDGE_HOSTS 换成实测能通的域名（见「三」）。
 
-> README 这 5 处直接照 `jerylihub/gate` 的最新 README 抄最快，内容一字不差地搬过去即可。
+### 全部 -1
+检查：edgetunnel 是否部署好、域名是否解析到 Cloudflare、UUID 是否填对、传输协议是否对得上（默认按 ws/TLS 生成）。
 
----
+### 30 分钟没更新
+到 Actions 页看最近一次运行是否成功、cron 是否还在（.github/workflows/check.yml 里的 */30 * * * *）。
 
-## 六、全局替换清单：`jerylihub` → `hezhanleiok`
-
-| 文件 | 常量 / 位置 | 约行号 | 修改后 |
-|---|---|---|---|
-| `vpngate.py` | `CHAIN_URL` | 410 | `https://hezhanleiok.github.io/gate/chains.txt` |
-| `vpngate.py` | `HOSTS_URL` | 469 | `https://hezhanleiok.github.io/gate/hosts.txt` |
-| `vpngate.py` | `NODES_URL` | 470 | `https://hezhanleiok.github.io/gate/nodes.txt` |
-| `vpngate.py` | `SUB_URL` | 529 | `https://hezhanleiok.github.io/gate/sub.txt` |
-| `check.yml` | `Show site URL` | 71 | `https://hezhanleiok.github.io/gate/` |
+### 检测 Worker 报错
+确认 Worker 部署成功、域名填对（workflow 里的 CHECK_WORKER），浏览器直接访问 https://你的Worker/check?sstp=... 看是否返回 JSON。
 
 ---
 
-## 七、计数汇总
-
-- `vpngate.py`：6 处
-- `check.yml`：2 处
-- `README.md`：5 处
-
-合计：**13 处**，分布在 **3 个文件**。
-
-另外全局替换：`jerylihub` → `hezhanleiok`，共 **5 处**。
-
----
-
-## 八、注意事项
-
-1. `CHECK_WORKER` 通过 workflow 环境变量传给脚本，会覆盖 `vpngate.py` 里的默认值，所以检测 Worker 域名只需在 workflow 里改一处。
-2. `EDT_DOMAIN` / `EDT_UUID` / `EDGE_HOSTS` 是 `vpngate.py` 里的默认值，直接改源码。
-3. 当前只修改说明文件，其他文件先不修改。
-4. 如果采用方案 A，替换完 5 处 URL 后，直接手动触发一次 Action，确认 `nodes.txt` 能生成、`check.yml` 的 cron 存在即可。
-
----
-
-## 九、待办 Checklist
-
-- [ ] 确认采用方案 A 还是方案 B
-- [ ] 同步 `vpngate.py`
-- [ ] 同步 `.github/workflows/check.yml`
-- [ ] 同步 `README.md`
-- [ ] 全局替换 `jerylihub` → `hezhanleiok` 共 5 处
-- [ ] 确认 `NODES_URL` 已加入 `vpngate.py`
-- [ ] 确认 `write_outputs()` 会生成 `nodes.txt`
-- [ ] 确认 `main()` 日志包含 `nodes.txt`
-- [ ] 确认 `check.yml` 有 `*/30 * * * *`
-- [ ] 手动触发 Action，验证成功
-- [ ] 打开 `hosts.txt` 和 `nodes.txt` 检查产物
+*流水线：GitHub Actions（每 30 分钟 cron） → vpngate.py → 检测 Worker → GitHub Pages*
