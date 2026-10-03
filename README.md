@@ -38,7 +38,7 @@ edgetunnel 后台「自定义优选IP」框填 https://…/nodes.txt
 ### 前置条件
 - 一个 Cloudflare 账号（免费即可）
 - 一个 GitHub 账号
-- 一个**已经部署好的 edgetunnel**（含自己的域名 + UUID）
+- 一个已转入 Cloudflare 的域名（可选，但强烈推荐）
 
 ### 第 1 步：部署 edgetunnel（核心使用端）
 
@@ -50,7 +50,9 @@ edgetunnel 后台「自定义优选IP」框填 https://…/nodes.txt
 6. 在 **绑定** 中，添加 KV 命名空间绑定，变量名称填 `KV`
 7. （推荐）在 **触发器** 中绑定自定义域名
 8. 浏览器访问 `https://你的域名/admin`，登录后台
-9. **在后台首页记下你的 UUID 和节点域名**（部署后续步骤要用）
+9. **在后台首页记下你的 UUID 和节点域名**（后面要用）
+
+> **关键**：`UUID` 和 `节点域名` 是 edgetunnel 自己的配置，**不需要**在 `vpngate.py` 中设置。`vpngate.py` 只负责生成 `nodes.txt`，edgetunnel 会用它自己的 UUID/域名去生成最终订阅。
 
 ### 第 2 步：部署检测 Worker（CheckSocks5）
 
@@ -61,6 +63,7 @@ edgetunnel 后台「自定义优选IP」框填 https://…/nodes.txt
 5. 验证：浏览器打开 `https://你的Worker域名/check?sstp=vpn:vpn@任意节点:端口` ，能返回 JSON 即成功
 
 ### 第 3 步：Fork 本仓库
+
 在 GitHub 上打开本仓库，点 **Fork**，复制到你账号下。
 
 ### 第 4 步：修改配置（重点）
@@ -72,7 +75,7 @@ edgetunnel 后台「自定义优选IP」框填 https://…/nodes.txt
 | .github/workflows/check.yml | env 里的 `CHECK_WORKER` | 你的检测 Worker 域名，形如 `https://xxx.workers.dev/check?sstp=vpn:vpn@` | 检测统一走你自己的 Worker |
 | vpngate.py | `NODES_URL` | 把里面写死的固定地址换成 `你的用户名/仓库名` | 自动更新时用到的固定地址 |
 
-> 注意：`vpngate.py` 中还有 `EDT_UUID` 和 `EDT_DOMAIN` 两个变量，它们用于生成链式代理编码（`chains.txt` 和 `sub.txt`），但精简版只生成 `nodes.txt`，所以**这两个变量不配置也不影响 `nodes.txt` 的生成**。如果你将来需要用到链式代理编码，可以把它们设为你 edgetunnel 后台的 UUID 和域名。
+> **注意**：`vpngate.py` 中**不需要**配置 `EDT_UUID` 和 `EDT_DOMAIN`。你之前看到的这两个变量是旧版遗留，现已删除。edgetunnel 后台会自己处理 UUID 和域名。
 
 ### 第 5 步：开启 GitHub Pages 与 Actions
 
@@ -127,8 +130,8 @@ https://你的GitHub用户名.github.io/仓库名/nodes.txt
 | `EDGE_HOSTS` | 入口优选域名（换域名改这里） |
 | `WORKER_CHECK_URL` | 检测 Worker（本地运行默认值，Action 里用 workflow 的 `CHECK_WORKER` 覆盖） |
 | `NODES_URL` | 自动更新时用到的固定地址（fork 后改成你自己的） |
-| `EDT_UUID` | edgetunnel UUID（精简版不影响 nodes.txt 生成） |
-| `EDT_DOMAIN` | edgetunnel 节点域名（精简版不影响 nodes.txt 生成） |
+
+> 再次强调：`vpngate.py` **不需要**配置 `EDT_UUID` 和 `EDT_DOMAIN`，这两个参数属于 edgetunnel 本身。
 
 ---
 
