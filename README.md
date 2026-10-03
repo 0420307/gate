@@ -1,21 +1,8 @@
 # VPN Gate SSTP 节点自动优选（edgetunnel 链式代理） 🚀
 
-[![Star History Chart](https://api.star-history.com/svg?repos=hezhanleiok/gate&type=Date)](https://star-history.com/#hezhanleiok/gate&Date)
-
 自动抓取 [VPN Gate](https://www.vpngate.net/) 的 SSTP 家宽/机房节点，调用检测 Worker 逐个验证可用性，按国家分组、标注住宅/机房，生成可直接通过 **URL 自动轮换** 的节点清单。**每 30 分钟自动更新一次。**
 
 > 核心价值：VPN Gate 的 SSTP 节点 30 分钟就换一批，手动测试筛选太痛苦。本仓库把它全自动了——你只需把 `nodes.txt` 的网址填进 edgetunnel 后台一次，之后节点每 30 分钟自动换，零手动。
-
----
-
-## 引用的开源项目（致谢）
-
-| 项目 | 用途 | 链接 |
-| :--- | :--- | :--- |
-| **cmliu/edgetunnel** | VLESS 代理 + 链式代理，节点最终通过它使用 | https://github.com/cmliu/edgetunnel |
-| **lsh8848/cm-Workers-CheckSocks5** | 检测 Worker：验证 SSTP 节点可用性并读取出口 IP | https://github.com/lsh8848/cm-Workers-CheckSocks5 |
-| **fdciabdul/Vpngate-Scraper-API** | VPN Gate 节点数据的 GitHub 镜像（官方源失效时回退） | https://github.com/fdciabdul/Vpngate-Scraper-API |
-| **VPN Gate** | SSTP 节点数据源 | https://www.vpngate.net/ |
 
 ---
 
@@ -144,3 +131,28 @@ edgetunnel 后台的「自定义优选IP」框除了粘贴文本，还支持直�
 ---
 
 *流水线：GitHub Actions（每 30 分钟 cron） → vpngate.py → 检测 Worker → GitHub Pages*
+
+---
+
+## 引用与致谢
+
+本项目的实现离不开以下开源项目和服务的支持，在此表示衷心的感谢：
+
+| 项目 | 用途 | 链接 |
+| :--- | :--- | :--- |
+| **cmliu/edgetunnel** | VLESS 代理 + 链式代理，节点最终通过它使用 | https://github.com/cmliu/edgetunnel |
+| **lsh8848/cm-Workers-CheckSocks5** | 检测 Worker：验证 SSTP 节点可用性并读取出口 IP | https://github.com/lsh8848/cm-Workers-CheckSocks5 |
+| **fdciabdul/Vpngate-Scraper-API** | VPN Gate 节点数据的 GitHub 镜像（官方源失效时回退） | https://github.com/fdciabdul/Vpngate-Scraper-API |
+| **VPN Gate** | SSTP 节点数据源 | https://www.vpngate.net/ |
+| **Star History** | 提供项目热度曲线图生成服务 | https://star-history.com/ |
+
+---
+
+## 项目热度
+
+[![Star History Chart](https://api.star-history.com/svg?repos=hezhanleiok/gate&type=Date)](https://star-history.com/#hezhanleiok/gate&Date)
+
+---
+
+**特别感谢**：
+感谢所有为开源社区做出贡献的开发者们！没有你们的无私奉献，就没有这个项目的诞生。也感谢每一位使用、测试和反馈问题的用户，是你们的支持让这个项目不断完善。
