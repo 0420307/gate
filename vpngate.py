@@ -3,16 +3,11 @@
 VPN Gate SSTP 节点检测流水线 (精简版)
 =====================================
 流程:
-  1. 获取 VPN Gate 原始节点 (官方 api/iphone CSV, 失败时回退 GitHub 预解析镜像)
-  2. 只保留「带 TCP 入口」的中继 = SSTP 可用节点
-  3. 按 host+port+protocol 去重
-  4. 并发调用已部署的 Cloudflare Worker 检测
-  5. 保留 success=true 的节点, 按国家分组
-  6. 生成 public/data.json + public/index.html + public/nodes.txt
-
-退出码:
-  0 = 正常完成
-  1 = 硬性失败 (数据源全挂 / 解析不出 SSTP 节点 / Worker 完全不可达 / 程序异常)
+  1. 获取 VPN Gate 原始节点
+  2. 只保留带 TCP 入口的 SSTP 节点
+  3. 去重
+  4. 并发调用检测 Worker
+  5. 生成 public/data.json + public/index.html + public/nodes.txt
 """
 
 import base64
@@ -29,7 +24,6 @@ from urllib.parse import quote
 
 import requests
 
-# 保证日志在任何控制台编码下都能输出
 for _stream in (sys.stdout, sys.stderr):
     try:
         _stream.reconfigure(encoding="utf-8", errors="replace")
@@ -103,7 +97,7 @@ def die(msg):
     sys.exit(1)
 
 # ---------------------------------------------------------------------------
-# 第 1 步: 获取 VPN Gate 原始节点
+# 数据抓取
 # ---------------------------------------------------------------------------
 def fetch_vpngate():
     try:
@@ -182,7 +176,7 @@ def parse_mirror_json(data):
     return rows
 
 # ---------------------------------------------------------------------------
-# 第 2 步: 筛选 SSTP 节点
+# 筛选 SSTP 节点
 # ---------------------------------------------------------------------------
 _PROTO_TCP_RE = re.compile(r"^proto\s+(tcp|tcp4|tcp6)\b", re.M)
 _REMOTE_RE = re.compile(r"^remote\s+\S+\s+(\d+)", re.M)
@@ -218,7 +212,7 @@ def dedupe(nodes):
     return out
 
 # ---------------------------------------------------------------------------
-# 第 3 步: 并发调用 Cloudflare Worker
+# 检测 Worker
 # ---------------------------------------------------------------------------
 def classify_network(host, exit_org, is_datacenter=None):
     if is_datacenter is True: return "datacenter"
@@ -277,7 +271,7 @@ def check_all(nodes, session):
     return results
 
 # ---------------------------------------------------------------------------
-# 第 4 步: 生成网页数据
+# 生成数据
 # ---------------------------------------------------------------------------
 def build_outputs(results, raw_count, sstp_count, source):
     available = [r for r in results if r.get("success")]
