@@ -1,6 +1,8 @@
 名字: VPN Gate Node Check
 
 on:
+  schedule:
+    - cron: "0 */12 * * *"
   workflow_dispatch:
 
 permissions:
