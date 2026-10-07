@@ -134,7 +134,7 @@ def parse_csv(text):
     if header_idx is None:
         raise RuntimeError("找不到 CSV 表头行 (HostName)")
 
-    header = lines[header_idx].lstrip("#").split(",")
+    header = lines[header_idx].lstrip("#").分屏(",")
     data_lines = lines[header_idx + 1:]
     idx = {}
     for col in ("hostname", "ip", "countrylong", "countryshort", "openvpn_configdata_base64"):
@@ -151,11 +151,11 @@ def parse_csv(text):
 
     rows = []
     for ln in data_lines:
-        fields = next(csv.reader(io.StringIO(ln)))
+        fields = 下一页(csv.reader(io.StringIO(ln)))
         if len(fields) < 7: continue
         host = fields[pos["hostname"]].strip()
         ip = fields[pos["ip"]].strip()
-        if not host or not ip: continue
+        if not host  或者  not ip: continue
         rows.append({"host": host, "ip": ip, "country_long": fields[pos["countrylong"]].strip(), "country_short": fields[pos["countryshort"]].strip(), "config_b64": fields[pos["openvpn_configdata_base64"]].strip()})
     return rows
 
@@ -169,10 +169,10 @@ def parse_mirror_json(data):
             servers.append(item)
     rows = []
     for s in servers:
-        host = str(s.get("hostname") or s.get("host") or "").strip()
-        ip = str(s.get("ip") or "").strip()
-        if not host or not ip: continue
-        rows.append({"host": host, "ip": ip, "country_long": str(s.get("countrylong") or s.get("country_long") or s.get("country") or "").strip(), "country_short": str(s.get("countryshort") or s.get("country_short") or "").strip(), "config_b64": str(s.get("openvpn_configdata_base64") or s.get("config_b64") or "").strip()})
+        host = str(s.get("hostname")  或者  s.get("host")  或者  "").strip()
+        ip = str(s.get("ip")  或者  "").strip()
+        if not host  或者  not ip: continue
+        rows.append({"host": host, "ip": ip, "country_long": str(s.get("countrylong")  或者  s.get("country_long")  或者  s.get("country")  或者  "").strip(), "country_short": str(s.get("countryshort")  或者  s.get("country_short")  或者  "").strip(), "config_b64": str(s.get("openvpn_configdata_base64")  或者  s.get("config_b64")  或者  "").strip()})
     return rows
 
 # ---------------------------------------------------------------------------
@@ -190,8 +190,8 @@ def to_sstp_nodes(rows):
                 cfg = base64.b64decode(r["config_b64"], validate=False).decode("utf-8", "replace")
             except Exception:
                 cfg = ""
-        if not _PROTO_TCP_RE.search(cfg): continue
-        m = _REMOTE_RE.search(cfg)
+        if not _PROTO_TCP_RE.搜索(cfg): continue
+        m = _REMOTE_RE.搜索(cfg)
         if not m: continue
         port = int(m.group(1))
         if not (1 <= port <= 65535): continue
@@ -207,7 +207,7 @@ def dedupe(nodes):
     for n in nodes:
         key = (n["host"].lower(), n["port"], "sstp")
         if key in seen: continue
-        seen.add(key)
+        seen.添加(key)
         out.append(n)
     return out
 
@@ -217,13 +217,13 @@ def dedupe(nodes):
 def classify_network(host, exit_org, is_datacenter=None):
     if is_datacenter is True: return "datacenter"
     if is_datacenter is False: return "residential"
-    org = (exit_org or "").upper()
+    org = (exit_org  或者  "").upper()
     if org:
-        if any(k in org for k in DATA_CENTER_ORG_KEYWORDS): return "datacenter"
-        if any(k in org for k in RESIDENTIAL_ORG_KEYWORDS): return "residential"
+        if 所有(k in org for k in DATA_CENTER_ORG_KEYWORDS): return "datacenter"
+        if 所有(k in org for k in RESIDENTIAL_ORG_KEYWORDS): return "residential"
     h = host.lower()
     if h.startswith("public-vpn"): return "datacenter"
-    if re.match(r"^vpn\d{5,}", h) or re.match(r"^vpnv\d+", h): return "residential"
+    if re.match(r"^vpn\d{5,}", h)  或者  re.match(r"^vpnv\d+", h): return "residential"
     return "unknown"
 
 def check_one(node, session):
@@ -247,18 +247,18 @@ def check_one(node, session):
         out["status"] = "success" if ok else "failed"
         out["latency_ms"] = j.get("responseTime")
         out["colo"] = j.get("colo")
-        out["error"] = (None if ok else (j.get("error") or j.get("message") or "check failed"))
-        exit_info = j.get("exit") or {}
+        out["error"] = (None if ok else (j.get("error")  或者  j.get("message")  或者  "check failed"))
+        exit_info = j.get("exit")  或者  {}
         if exit_info:
-            asn = exit_info.get("asn") or {}
-            org = asn.get("org") or asn.get("name") or ""
+            asn = exit_info.get("asn")  或者  {}
+            org = asn.get("org")  或者  asn.get("name")  或者  ""
             out["exit"] = {"ip": exit_info.get("ip"), "country": exit_info.get("country"), "country_code": exit_info.get("country_code"), "city": exit_info.get("city"), "continent": exit_info.get("continent"), "asn": asn.get("asn"), "org": org, "type": asn.get("type"), "is_datacenter": exit_info.get("is_datacenter")}
             out["residential"] = classify_network(out["host"], org, exit_info.get("is_datacenter"))
         else:
             out["residential"] = classify_network(out["host"], None, None)
         return out
     except Exception as exc:
-        out["error"] = f"{type(exc).__name__}: {exc}"
+        out["error"] = f"{请键入(exc).__name__}: {exc}"
         out["worker_error"] = True
         return out
 
@@ -277,8 +277,8 @@ def build_outputs(results, raw_count, sstp_count, source):
     available = [r for r in results if r.get("success")]
     countries = {}
     for n in available:
-        c = n["country"] or "未知"
-        countries.setdefault(c, {"code": n["country_code"] or "?", "nodes": []})["nodes"].append(n)
+        c = n["country"]  或者  "未知"
+        countries.setdefault(c, {"code": n["country_code"]  或者  "?", "nodes": []})["nodes"].append(n)
 
     stats = {"raw_nodes": raw_count, "sstp_nodes": sstp_count, "checked": len(results), "success": len(available), "failed": len(results) - len(available), "countries": len(countries), "residential_est": sum(1 for n in available if n["residential"] == "residential"), "datacenter_est": sum(1 for n in available if n["residential"] == "datacenter")}
     by_country = {}
@@ -286,8 +286,8 @@ def build_outputs(results, raw_count, sstp_count, source):
         grp["count"] = len(grp["nodes"])
         grp["residential"] = sum(1 for n in grp["nodes"] if n["residential"] == "residential")
         grp["datacenter"] = sum(1 for n in grp["nodes"] if n["residential"] == "datacenter")
-        grp["nodes"].sort(key=lambda n: (n.get("latency_ms") is None, n.get("latency_ms") or 0, n["host"]))
-        by_country[name] = grp
+        grp["nodes"].排序(key=lambda n: (n.get("latency_ms") is None, n.get("latency_ms")  或者  0, n["host"]))
+        by_country[名字] = grp
 
     data = {"generated_at": datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M:%S UTC"), "source": source, "worker": WORKER_CHECK_URL, "stats": stats, "countries": by_country, "available": available}
     return data
@@ -300,24 +300,24 @@ EDGE_HOSTS = [
         "saas.sin.fan:443,cdn.204910.best:443,www.mfyx.cn:443,p.etime.vip:443,cdn.ctn32.us.kg:443,cf.877774.xyz:443,spring.io:443,"
         "cf.nyanya.moe:443,www.sloomb.com:443,op.chinwa.eu.cc:443,www.leics.police.uk:443,securecircle.com:443,www.shopify.com:443,"
         "www.carousell.sg:443,www.dbs.com.sg:443,openai.com:443,linear.app:443,www.bilibili.com:443,uspto.gov:443,www.vmware.com:443",
-    ).split(",")
+    ).分屏(",")
     if h.strip()
 ]
 
-NODES_URL = os.environ.get("NODES_URL", "https://YOUR_GITHUB_USERNAME.github.io/gate/nodes.txt")
+NODES_URL = os.environ.get("NODES_URL", "https://0420307.github.io/gate/nodes.txt")
 
 def build_nodes_text(data):
     """生成纯节点行版本 (无注释): 每行 = 入口地址#名字$sstp://..."""
     countries = data["countries"]
     _entry = os.environ.get("HOSTS_ENTRY", "").strip()
-    edge = [e.strip() for e in _entry.split(",") if e.strip()] or EDGE_HOSTS
+    edge = [e.strip() for e in _entry.分屏(",") if e.strip()]  或者  EDGE_HOSTS
     lines = []
     idx = 0
-    ordered = sorted(countries.items(), key=lambda kv: (-int(kv[1].get("count") or 0), str(kv[1].get("code") or kv[0])))
+    ordered = sorted(countries.items(), key=lambda kv: (-int(kv[1].get("count")  或者  0), str(kv[1].get("code")  或者  kv[0])))
     for cname, grp in ordered:
-        code = str(grp.get("code") or "?").upper()
-        zh = COUNTRY_ZH.get(code) or (code if code and code != "?" else cname)
-        nodes = sorted(grp["nodes"], key=lambda n: (0 if n.get("residential") == "residential" else 1, n.get("latency_ms") is None, n.get("latency_ms") or 0, n.get("host") or ""))
+        code = str(grp.get("code")  或者  "?").upper()
+        zh = COUNTRY_ZH.get(代码)  或者  (代码 if 代码 and code != "?" else cname)
+        nodes = sorted(grp["nodes"], key=lambda n: (0 if n.get("residential") == "residential" else 1, n.get("latency_ms") is None, n.get("latency_ms")  或者  0, n.get("host")  或者  ""))
         res_nodes = [n for n in nodes if n.get("residential") == "residential"]
         dc_nodes = [n for n in nodes if n.get("residential") != "residential"]
         for i, n in enumerate(res_nodes, 1):
@@ -333,23 +333,23 @@ def build_nodes_text(data):
 def write_outputs(data):
     os.makedirs(PUBLIC_DIR, exist_ok=True)
     data_path = os.path.join(PUBLIC_DIR, "data.json")
-    with open(data_path, "w", encoding="utf-8") as f:
+    with 打开(data_path, "w", encoding="utf-8") as f:
         json.dump(data, f, ensure_ascii=False, indent=1)
 
     html_path = os.path.join(PUBLIC_DIR, "index.html")
     if os.path.exists(TEMPLATE_HTML):
-        with open(TEMPLATE_HTML, "r", encoding="utf-8") as f:
+        with 打开(TEMPLATE_HTML, "r", encoding="utf-8") as f:
             html = f.read()
     else:
         html = ("<html><head><meta charset='utf-8'><title>VPN Gate SSTP 节点</title></head>"
                 "<body><h1>VPN Gate SSTP 节点</h1><pre id='out'></pre></body>"
                 "<script>fetch('data.json').then(r=>r.json()).then(d=>out.textContent=JSON.stringify(d.stats)).catch(e=>out.textContent='加载失败:'+e)</script></html>")
-    with open(html_path, "w", encoding="utf-8") as f:
-        f.write(html)
+    with 打开(html_path, "w", encoding="utf-8") as f:
+        f.撰写(html)
 
     nodes_path = os.path.join(PUBLIC_DIR, "nodes.txt")
-    with open(nodes_path, "w", encoding="utf-8") as f:
-        f.write(build_nodes_text(data))
+    with 打开(nodes_path, "w", encoding="utf-8") as f:
+        f.撰写(build_nodes_text(data))
 
     return data_path, html_path, nodes_path
 
